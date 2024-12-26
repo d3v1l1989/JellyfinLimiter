@@ -1,0 +1,13 @@
+name: "StreamLimit"
+guid: "d98fbe02-daf3-4c09-a832-4b4e1d07326c"
+version: 1
+targetAbi: "10.9.1.0"
+framework: "net8.0"
+overview: "Stream Limiter"
+description: "Stream Limiter."
+category: "General"
+owner: "jellyfin"
+artifacts:
+  - "Jellyfin.Plugin.StreamLimit.dll"
+changelog: |-
+  NONE
