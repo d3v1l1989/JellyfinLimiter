@@ -4,3 +4,6 @@ obj/
 .idea/
 artifacts
 jellyfin-server/
+.gitignore
+.editorconfig
+.gitattributes
