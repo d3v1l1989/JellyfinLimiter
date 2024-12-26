@@ -23,7 +23,11 @@ public class Plugin : BasePlugin<PluginConfiguration>, IHasWebPages
 
     /// <inheritdoc />
     public override Guid Id => Guid.Parse("d98fbe02-daf3-4c09-a832-4b4e1d07326c");
-    public override string ConfigurationFileName => "StreamLimiter";
+
+    /// <summary>
+    /// Gets the name of the configuration file.
+    /// </summary>
+    public override string ConfigurationFileName => "plugin-configuration";
 
     public override string Description => "Stream Limiter";
 
@@ -54,7 +58,18 @@ public class Plugin : BasePlugin<PluginConfiguration>, IHasWebPages
         _logger = loggerFactory.CreateLogger<Plugin>();
         Instance = this;
         userName = authenticationManager?.HttpContext?.User?.Identity?.Name;
-        _logger.LogInformation("Stream limiter started");
+
+        // Ensure configuration exists and can be loaded
+        try
+        {
+            Configuration ??= new PluginConfiguration();
+            SaveConfiguration();
+            _logger.LogInformation("Stream limiter configuration initialized");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error loading plugin configuration");
+        }
     }
 
     

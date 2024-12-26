@@ -2,6 +2,8 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
+using System.Threading.Tasks;
+using System.Diagnostics.CodeAnalysis;
 using Jellyfin.Plugin.StreamLimit.Configuration;
 using MediaBrowser.Controller.Devices;
 using MediaBrowser.Controller.Library;
@@ -11,163 +13,205 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
 using Newtonsoft.Json;
 using MediaBrowser.Controller.Events;
-using System.Threading.Tasks;
-
-
+using MediaBrowser.Common.Plugins;
 
 namespace Jellyfin.Plugin.StreamLimit.Limiter;
 
-public class PlaybackStartLimiter : IEventConsumer<PlaybackStartEventArgs>
+public sealed class PlaybackStartLimiter : IEventConsumer<PlaybackStartEventArgs>
 {
-    private readonly ISessionManager sessionManager;
-    private readonly IHttpContextAccessor authenticationManager;
-    private readonly ILoggerFactory loggerFactory;
-    private readonly IDeviceManager deviceManager;
-    private readonly ILogger<PlaybackStartLimiter> logger;
-    private PluginConfiguration? configuration;
-    private Dictionary<string, int>? userData = new Dictionary<string, int>();
+    private readonly ISessionManager _sessionManager;
+    private readonly IHttpContextAccessor _authenticationManager;
+    private readonly ILoggerFactory _loggerFactory;
+    private readonly IDeviceManager _deviceManager;
+    private readonly ILogger<PlaybackStartLimiter> _logger;
+    private PluginConfiguration? _configuration;
+    private Dictionary<string, int> _userData = new();
+
+    private static int _taskCounter;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="PlaybackStartLimiter"/> class.
     /// </summary>
-    /// <param name="sessionManager">sessionManager.</param>
-    /// <param name="authenticationManager">authenticationManager.</param>
-    /// <param name="loggerFactory">loggerFactory.</param>
-    /// <param name="deviceManager">deviceManager.</param>
     public PlaybackStartLimiter(
-        ISessionManager sessionManager,
-        IHttpContextAccessor authenticationManager,
-        ILoggerFactory loggerFactory,
-        IDeviceManager deviceManager)
+        [NotNull] ISessionManager sessionManager,
+        [NotNull] IHttpContextAccessor authenticationManager,
+        [NotNull] ILoggerFactory loggerFactory,
+        [NotNull] IDeviceManager deviceManager)
     {
-        this.sessionManager = sessionManager;
-        this.authenticationManager = authenticationManager;
-        this.loggerFactory = loggerFactory;
-        this.deviceManager = deviceManager;
-        this.logger = loggerFactory.CreateLogger<PlaybackStartLimiter>();
-        this.configuration = Plugin.Instance?.Configuration as PluginConfiguration;
-        Plugin.Instance!.ConfigurationChanged += (sender, pluginConfiguration) =>
+        _sessionManager = sessionManager;
+        _authenticationManager = authenticationManager;
+        _loggerFactory = loggerFactory;
+        _deviceManager = deviceManager;
+        _logger = loggerFactory.CreateLogger<PlaybackStartLimiter>();
+        _configuration = Plugin.Instance?.Configuration as PluginConfiguration;
+
+        if (Plugin.Instance is not null)
         {
-            this.configuration = pluginConfiguration as PluginConfiguration;
-            this.LoadUserData();
-        };
-        this.logger.LogInformation("");
+            Plugin.Instance.ConfigurationChanged += (sender, args) =>
+            {
+                _configuration = args as PluginConfiguration;
+                LoadUserData();
+            };
+        }
+
+        LoadUserData();
     }
+
     private void LoadUserData()
     {
-        this.configuration = Plugin.Instance.Configuration;//this.configuration;
+        _configuration = Plugin.Instance?.Configuration;
+        var configurationUserNumericValues = _configuration?.UserNumericValues;
 
-        var configurationUserNumericValues = this.configuration?.UserNumericValues;
-        if (configurationUserNumericValues != null)
+        if (string.IsNullOrEmpty(configurationUserNumericValues))
         {
-            try
-            {
-                this.userData = JsonConvert.DeserializeObject<Dictionary<string, int>>(configurationUserNumericValues);
-            }
-            catch (Exception ex)
-            {
-                this.logger.LogError("Failed to convert configurationUserNumericValues to object");
-            }
+            return;
         }
-    }
-    public static class IncrementalNumberGenerator
-    {
-        private static int _counter = 0;
-
-        public static int GetNextNumber()
-        {
-            return Interlocked.Increment(ref _counter);
-        }
-    }
-
-    public async Task OnEvent(PlaybackStartEventArgs e)
-    {
-        int TaskNumber = IncrementalNumberGenerator.GetNextNumber();
-        this.logger.LogInformation($"[{TaskNumber}] ---------------[StreamLimit_Start]---------------");
-
 
         try
         {
-            if (e.Users[0].Id == null)
+            _userData = JsonConvert.DeserializeObject<Dictionary<string, int>>(configurationUserNumericValues) ?? new Dictionary<string, int>();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to convert configurationUserNumericValues to object");
+        }
+    }
+
+    private static int GetNextTaskNumber() => Interlocked.Increment(ref _taskCounter);
+
+    public async Task OnEvent(PlaybackStartEventArgs e)
+    {
+        var taskNumber = GetNextTaskNumber();
+        _logger.LogInformation("[{TaskNumber}] ---------------[StreamLimit_Start]---------------", taskNumber);
+
+        try
+        {
+            if (e.Users.Count == 0 || e.Users[0].Id == Guid.Empty)
             {
-                this.logger.LogInformation($"[{TaskNumber}] [Error] e.Users[0].Id is null");
+                _logger.LogInformation("[{TaskNumber}] [Error] Invalid user ID", taskNumber);
                 return;
             }
 
-            if (e.Session == null)
+            if (e.Session?.Id == null)
             {
-                this.logger.LogInformation($"[{TaskNumber}] [Error] e.Session is null");
-                return;
-            }
-
-            if (e.Session.Id == null)
-            {
-                this.logger.LogInformation($"[{TaskNumber}] [Error] e.Session.Id is null");
+                _logger.LogInformation("[{TaskNumber}] [Error] Invalid session", taskNumber);
                 return;
             }
 
             var userId = e.Users[0].Id.ToString();
-            this.logger.LogInformation($"[{TaskNumber}] Playback Started : {userId}");
+            _logger.LogInformation("[{TaskNumber}] Playback Started : {UserId}", taskNumber, userId);
 
-            var activeStreamsForUser = this.sessionManager.Sessions.Count(s => s.UserId == Guid.Parse(userId) && s.NowPlayingItem != null);
-            this.logger.LogInformation($"[{TaskNumber}] Streaming Active : {activeStreamsForUser}");
+            var activeStreamsForUser = _sessionManager.Sessions.Count(s => s.UserId == Guid.Parse(userId) && s.NowPlayingItem != null);
+            _logger.LogInformation("[{TaskNumber}] Streaming Active : {ActiveStreams}", taskNumber, activeStreamsForUser);
 
             var userDataKey = userId.Replace("-", string.Empty);
-            var maxStreamsAllowed = 0;
-            LoadUserData();
-            if (this.userData?.TryGetValue(userDataKey, out var value) is true)
-            {
-                maxStreamsAllowed = value;
-                this.logger.LogInformation($"[{TaskNumber}] Streaming Limit  : {maxStreamsAllowed} [Y]");
-            } else {
-                this.logger.LogInformation($"[{TaskNumber}] Streaming Limit  : {maxStreamsAllowed} [N]");
-            }
+            var maxStreamsAllowed = _userData.GetValueOrDefault(userDataKey);
+            
+            _logger.LogInformation(
+                "[{TaskNumber}] Streaming Limit  : {MaxStreams} [{HasLimit}]", 
+                taskNumber, 
+                maxStreamsAllowed, 
+                maxStreamsAllowed > 0 ? "Y" : "N");
 
-            if (maxStreamsAllowed > 0) {
-                if (activeStreamsForUser > maxStreamsAllowed)
-                {
-                this.sessionManager.SendPlaystateCommand(
-                    e.Session.Id,
-                    e.Session.Id,
-                    new PlaystateRequest()
-                    {
-                        Command = PlaystateCommand.Stop,
-                        ControllingUserId = e.Session.UserId.ToString(),
-                        SeekPositionTicks = e.Session.PlayState?.PositionTicks,
-                    },
-                    CancellationToken.None)
-                    .Wait();
-                this.sessionManager.SendMessageCommand(
-                    e.Session.Id,
-                    e.Session.Id,
-                    new MessageCommand()
-                    {
-                        Header = this.configuration?.MessageTitleToShow ?? "Stream Limit",
-                        Text = this.configuration?.MessageTextToShow ?? "Active streams exceeded",
-                    },
-                    CancellationToken.None)
-                .Wait();
-                this.logger.LogInformation($"[{TaskNumber}] Limited          : Play Canceled");
-                } else {
-                    this.logger.LogInformation($"[{TaskNumber}] Not Limited      : Play Bypass");
-                }
-            } else {
-                this.logger.LogInformation($"[{TaskNumber}] No Limit         : Play Bypass");
+            if (maxStreamsAllowed > 0 && activeStreamsForUser > maxStreamsAllowed)
+            {
+                await LimitPlayback(e.Session, taskNumber);
+            }
+            else
+            {
+                _logger.LogInformation(
+                    "[{TaskNumber}] {Status} : Play Bypass",
+                    taskNumber,
+                    maxStreamsAllowed > 0 ? "Not Limited" : "No Limit");
             }
         }
         catch (Exception ex)
         {
-            if (ex.InnerException != null)
-            {
-                this.logger.LogError($"[{TaskNumber}] inner exception");
-                this.logger.LogError(ex.InnerException.Message, ex.InnerException);
-            }
-            this.logger.LogError($"[{TaskNumber}] e.Users: {e.Users}");
-            this.logger.LogError($"[{TaskNumber}] e.PlaySessionId: {e.PlaySessionId}");
-            this.logger.LogError($"[{TaskNumber}] e.Session: {e.Session}");
-            this.logger.LogError($"[{TaskNumber}] StreamLimiter::" + ex.Message, ex);
+            LogError(ex, e, taskNumber);
         }
-        this.logger.LogInformation($"[{TaskNumber}] ----------------[StreamLimit_End]----------------");
+
+        _logger.LogInformation("[{TaskNumber}] ----------------[StreamLimit_End]----------------", taskNumber);
+    }
+
+    private async Task LimitPlayback(SessionInfo session, int taskNumber)
+    {
+        _logger.LogInformation("[{TaskNumber}] Attempting to stop playback for session {SessionId}", taskNumber, session.Id);
+        
+        try
+        {
+            await StopPlayback(session, taskNumber);
+            await Task.Delay(500); // Small delay to ensure the stop command is processed
+            await ShowLimitMessage(session, taskNumber);
+            await LogoutSession(session, taskNumber);
+            
+            _logger.LogInformation("[{TaskNumber}] Limited : Play Canceled", taskNumber);
+        }
+        catch (Exception stopEx)
+        {
+            _logger.LogError(stopEx, "[{TaskNumber}] Failed to stop playback", taskNumber);
+            throw;
+        }
+    }
+
+    private async Task StopPlayback(SessionInfo session, int taskNumber)
+    {
+        await _sessionManager.SendPlaystateCommand(
+            session.Id,
+            session.Id,
+            new PlaystateRequest
+            {
+                Command = PlaystateCommand.Stop,
+                ControllingUserId = session.UserId.ToString(),
+                SeekPositionTicks = 0
+            },
+            CancellationToken.None);
+            
+        _logger.LogInformation("[{TaskNumber}] Successfully sent stop command", taskNumber);
+    }
+
+    private async Task ShowLimitMessage(SessionInfo session, int taskNumber)
+    {
+        await _sessionManager.SendMessageCommand(
+            session.Id,
+            session.Id,
+            new MessageCommand
+            {
+                Header = _configuration?.MessageTitleToShow ?? "Stream Limit",
+                Text = _configuration?.MessageTextToShow ?? "Active streams exceeded",
+                TimeoutMs = 5000
+            },
+            CancellationToken.None);
+            
+        _logger.LogInformation("[{TaskNumber}] Successfully sent message command", taskNumber);
+    }
+
+    private async Task LogoutSession(SessionInfo session, int taskNumber)
+    {
+        try
+        {
+            await _sessionManager.Logout(session.Id);
+            _logger.LogInformation("[{TaskNumber}] Successfully logged out session", taskNumber);
+        }
+        catch (Exception rex)
+        {
+            _logger.LogWarning(rex, "[{TaskNumber}] Failed to logout session", taskNumber);
+        }
+    }
+
+    private void LogError(Exception ex, PlaybackStartEventArgs e, int taskNumber)
+    {
+        if (ex.InnerException != null)
+        {
+            _logger.LogError(ex.InnerException, "[{TaskNumber}] Inner exception", taskNumber);
+        }
+
+        _logger.LogError(
+            ex,
+            "[{TaskNumber}] Error details - Users: {Users}, PlaySessionId: {PlaySessionId}, Session: {Session}",
+            taskNumber,
+            e.Users,
+            e.PlaySessionId,
+            e.Session);
     }
 }
 
