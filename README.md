@@ -11,7 +11,7 @@ A Jellyfin plugin that allows you to limit the number of simultaneous streams pe
 
 ## Example
 
-![Example](Readme-data/exemple.mp4)
+![Example](Readme-data/Example.gif)
 
 
 ## Installation
