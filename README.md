@@ -65,7 +65,7 @@ POST /StreamLimit/SetAlertMessage
 
 Detailed API documentation is available through Swagger UI at:
 ```
-http://your-server-ip/api-docs/swagger/index.html
+http://your-server-ip/api-docs/swagger
 ```
 Navigate to the "StreamLimit" section to explore all available endpoints and their parameters.
 
