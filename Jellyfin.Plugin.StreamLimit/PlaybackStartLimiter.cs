@@ -59,9 +59,13 @@ public sealed class PlaybackStartLimiter : IEventConsumer<PlaybackStartEventArgs
 
     private void LoadUserData()
     {
-        _configuration = Plugin.Instance?.Configuration;
-        var configurationUserNumericValues = _configuration?.UserNumericValues;
+        if (_configuration == null)
+        {
+            _logger.LogWarning("Configuration is null when loading user data");
+            return;
+        }
 
+        var configurationUserNumericValues = _configuration.UserNumericValues;
         if (string.IsNullOrEmpty(configurationUserNumericValues))
         {
             return;
@@ -101,16 +105,19 @@ public sealed class PlaybackStartLimiter : IEventConsumer<PlaybackStartEventArgs
             var userId = e.Users[0].Id.ToString();
             _logger.LogInformation("[{TaskNumber}] Playback Started : {UserId}", taskNumber, userId);
 
-            var activeStreamsForUser = _sessionManager.Sessions.Count(s => s.UserId == Guid.Parse(userId) && s.NowPlayingItem != null);
+            var activeStreamsForUser = _sessionManager.Sessions.Count(s =>
+                s.UserId == Guid.Parse(userId) &&
+                s.NowPlayingItem != null &&
+                s.IsActive);
             _logger.LogInformation("[{TaskNumber}] Streaming Active : {ActiveStreams}", taskNumber, activeStreamsForUser);
 
             var userDataKey = userId.Replace("-", string.Empty);
             var maxStreamsAllowed = _userData.GetValueOrDefault(userDataKey);
-            
+
             _logger.LogInformation(
-                "[{TaskNumber}] Streaming Limit  : {MaxStreams} [{HasLimit}]", 
-                taskNumber, 
-                maxStreamsAllowed, 
+                "[{TaskNumber}] Streaming Limit  : {MaxStreams} [{HasLimit}]",
+                taskNumber,
+                maxStreamsAllowed,
                 maxStreamsAllowed > 0 ? "Y" : "N");
 
             if (maxStreamsAllowed > 0 && activeStreamsForUser > maxStreamsAllowed)
@@ -122,7 +129,7 @@ public sealed class PlaybackStartLimiter : IEventConsumer<PlaybackStartEventArgs
                 _logger.LogInformation(
                     "[{TaskNumber}] {Status} : Play Bypass",
                     taskNumber,
-                    maxStreamsAllowed > 0 ? "Not Limited" : "No Limit");
+                    maxStreamsAllowed > 0 ? "Not Limited" : "No In Limit");
             }
         }
         catch (Exception ex)
@@ -136,14 +143,14 @@ public sealed class PlaybackStartLimiter : IEventConsumer<PlaybackStartEventArgs
     private async Task LimitPlayback(SessionInfo session, int taskNumber)
     {
         _logger.LogInformation("[{TaskNumber}] Attempting to stop playback for session {SessionId}", taskNumber, session.Id);
-        
+
         try
         {
             await StopPlayback(session, taskNumber);
-            await Task.Delay(500); // Small delay to ensure the stop command is processed
+            await Task.Delay(500);
             await ShowLimitMessage(session, taskNumber);
             await LogoutSession(session, taskNumber);
-            
+
             _logger.LogInformation("[{TaskNumber}] Limited : Play Canceled", taskNumber);
         }
         catch (Exception stopEx)
@@ -155,34 +162,52 @@ public sealed class PlaybackStartLimiter : IEventConsumer<PlaybackStartEventArgs
 
     private async Task StopPlayback(SessionInfo session, int taskNumber)
     {
-        await _sessionManager.SendPlaystateCommand(
-            session.Id,
-            session.Id,
-            new PlaystateRequest
-            {
-                Command = PlaystateCommand.Stop,
-                ControllingUserId = session.UserId.ToString(),
-                SeekPositionTicks = 0
-            },
-            CancellationToken.None);
-            
-        _logger.LogInformation("[{TaskNumber}] Successfully sent stop command", taskNumber);
+        try
+        {
+            await _sessionManager.SendPlaystateCommand(
+                session.Id,
+                session.Id,
+                new PlaystateRequest
+                {
+                    Command = PlaystateCommand.Stop,
+                    ControllingUserId = session.UserId.ToString(),
+                    SeekPositionTicks = 0,
+                },
+                CancellationToken.None);
+
+            _logger.LogInformation("[{TaskNumber}] Successfully sent stop command", taskNumber);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "[{TaskNumber}] Failed to send stop command", taskNumber);
+            throw;
+        }
     }
 
     private async Task ShowLimitMessage(SessionInfo session, int taskNumber)
     {
-        await _sessionManager.SendMessageCommand(
-            session.Id,
-            session.Id,
-            new MessageCommand
-            {
-                Header = _configuration?.MessageTitleToShow ?? "Stream Limit",
-                Text = _configuration?.MessageTextToShow ?? "Active streams exceeded",
-                TimeoutMs = 5000
-            },
-            CancellationToken.None);
-            
-        _logger.LogInformation("[{TaskNumber}] Successfully sent message command", taskNumber);
+        try
+        {
+            var messageTitle = _configuration?.MessageTitleToShow ?? "Stream Limit";
+            var messageText = _configuration?.MessageTextToShow ?? "Active streams exceeded";
+
+            await _sessionManager.SendMessageCommand(
+                session.Id,
+                session.Id,
+                new MessageCommand
+                {
+                    Header = messageTitle,
+                    Text = messageText,
+                },
+                CancellationToken.None);
+
+            _logger.LogInformation("[{TaskNumber}] Successfully sent message command", taskNumber);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "[{TaskNumber}] Failed to send message command", taskNumber);
+            throw;
+        }
     }
 
     private async Task LogoutSession(SessionInfo session, int taskNumber)
