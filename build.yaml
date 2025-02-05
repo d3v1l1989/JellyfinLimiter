@@ -1,13 +1,21 @@
 name: "StreamLimit"
 guid: "d98fbe02-daf3-4c09-a832-4b4e1d07326c"
-version: 1
-targetAbi: "10.9.1.0"
+version: "1.0.0.1"
+targetAbi: "10.10.5.0"
 framework: "net8.0"
 overview: "Stream Limiter"
-description: "Stream Limiter."
+description: "Limit the number of streams a user can have."
 category: "General"
-owner: "jellyfin"
+owner: "JellyboxAD"
+timestamp: "2025-02-05T19:29:34Z"
 artifacts:
   - "Jellyfin.Plugin.StreamLimit.dll"
 changelog: |-
-  NONE
+
+  ### [v1.0.0.1]
+  - Updated controller
+  - Fixed iOS error
+  - Fixed configuration management
+
+  ### [v1.0.0.0]
+  - Initial version
