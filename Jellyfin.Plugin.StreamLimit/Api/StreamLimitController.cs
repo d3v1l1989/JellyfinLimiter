@@ -37,7 +37,7 @@ namespace Jellyfin.Plugin.StreamLimit.Api
                     return this.NotFound("User does not exist");
                 }
 
-                var userData = JsonConvert.DeserializeObject<Dictionary<string, int>>(Plugin.Instance.Configuration.UserNumericValues);
+                var userData = JsonConvert.DeserializeObject<Dictionary<string, int>>(Plugin.Instance.Configuration.UserStreamLimits);
                 if (userData != null)
                 {
                     int streamsAllowed = userData[userId.Replace("-", string.Empty)];
@@ -68,11 +68,11 @@ namespace Jellyfin.Plugin.StreamLimit.Api
                     return this.NotFound("User does not exist");
                 }
 
-                var userData = JsonConvert.DeserializeObject<Dictionary<string, int>>(Plugin.Instance.Configuration.UserNumericValues);
+                var userData = JsonConvert.DeserializeObject<Dictionary<string, int>>(Plugin.Instance.Configuration.UserStreamLimits);
                 if (userData != null)
                 {
                     userData[userId.Replace("-", string.Empty)] = streamsAllowed;
-                    Plugin.Instance.Configuration.UserNumericValues = JsonConvert.SerializeObject(userData);
+                    Plugin.Instance.Configuration.UserStreamLimits = JsonConvert.SerializeObject(userData);
                     Plugin.Instance.SaveConfiguration();
                     return Ok("user's stream limit set");
                 }
@@ -91,9 +91,9 @@ namespace Jellyfin.Plugin.StreamLimit.Api
         {
             try
             {
-                Plugin.Instance.Configuration.MessageTextToShow = alertMessage;
+                Plugin.Instance.Configuration.MessageText = alertMessage;
                 //Plugin.Instance.Configuration.MessageTimeShowInSeconds = duration;
-                Plugin.Instance.Configuration.MessageTitleToShow = title;
+                Plugin.Instance.Configuration.MessageTitle = title;
                 Plugin.Instance.SaveConfiguration();
                 return Ok("Message updated:" + title);
             }

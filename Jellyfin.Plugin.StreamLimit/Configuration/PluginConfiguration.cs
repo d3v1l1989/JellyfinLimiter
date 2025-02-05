@@ -1,23 +1,23 @@
-namespace Jellyfin.Plugin.StreamLimit.Configuration;
-
+using System;
 using System.Collections.Generic;
 using System.Xml.Serialization;
-using MediaBrowser.Model.Plugins;
+
+namespace Jellyfin.Plugin.StreamLimit.Configuration;
 
 /// <summary>
 /// Plugin configuration.
 /// </summary>
 [XmlRoot("StreamLimiterConfiguration")]
-public class PluginConfiguration : BasePluginConfiguration
+public class PluginConfiguration : MediaBrowser.Model.Plugins.BasePluginConfiguration
 {
     /// <summary>
     /// Initializes a new instance of the <see cref="PluginConfiguration"/> class.
     /// </summary>
     public PluginConfiguration()
     {
-        UserNumericValues = string.Empty;
-        MessageTitleToShow = "Stream Limit";
-        MessageTextToShow = "Active streams exceeded";
+        UserStreamLimits = string.Empty;
+        MessageTitle = "Stream Limit";
+        MessageText = "Active streams exceeded";
     }
 
     /// <summary>
@@ -25,17 +25,17 @@ public class PluginConfiguration : BasePluginConfiguration
     /// Format: Dictionary of user IDs to maximum allowed streams.
     /// </summary>
     [XmlElement(ElementName = "UserStreamLimits")]
-    public string UserNumericValues { get; set; }
+    public string UserStreamLimits { get; set; }
 
     /// <summary>
     /// Gets or sets the title of the message shown when stream limit is exceeded.
     /// </summary>
     [XmlElement(ElementName = "MessageTitle")]
-    public string MessageTitleToShow { get; set; }
+    public string MessageTitle { get; set; }
 
     /// <summary>
     /// Gets or sets the text of the message shown when stream limit is exceeded.
     /// </summary>
     [XmlElement(ElementName = "MessageText")]
-    public string MessageTextToShow { get; set; }
+    public string MessageText { get; set; }
 }

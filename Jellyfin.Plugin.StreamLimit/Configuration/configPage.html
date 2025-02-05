@@ -22,13 +22,13 @@
                         <div class="fieldDescription">Max Streams for selected user</div>
                     </div>
                     <div class="inputContainer">
-                        <label class="inputLabel inputLabelUnfocused" for="MessageTitleToShow">Message Title</label>
-                        <input id="MessageTitleToShow" name="MessageTitleToShow" type="text" is="emby-input" min="0" />
+                        <label class="inputLabel inputLabelUnfocused" for="MessageTitle">Message Title</label>
+                        <input id="MessageTitle" name="MessageTitle" type="text" is="emby-input" min="0" />
                         <div class="fieldDescription">Title of the message</div>
                     </div>
                     <div class="inputContainer">
-                        <label class="inputLabel inputLabelUnfocused" for="MessageTextToShow">Message</label>
-                        <input id="MessageTextToShow" name="MessageTextToShow" type="text" is="emby-input" min="0" />
+                        <label class="inputLabel inputLabelUnfocused" for="MessageText">Message</label>
+                        <input id="MessageText" name="MessageText" type="text" is="emby-input" min="0" />
                         <div class="fieldDescription">Detailed message</div>
                     </div>
                     <div>
@@ -46,7 +46,7 @@
             var usersWithValues = {};
             function populateUsersWithValues(config) {
                 try {
-                    usersWithValues = JSON.parse(config.UserNumericValues);
+                    usersWithValues = JSON.parse(config.UserStreamLimits);
                 } catch {
                     usersWithValues = {};
                 }
@@ -69,9 +69,9 @@
                             populateUsersWithValues(config);
                             const streams = document.getElementById('MaxStreams').value;
                             usersWithValues[ddlUsers.value] = streams;
-                            config.UserNumericValues = JSON.stringify(usersWithValues);
-                            config.MessageTitleToShow = document.getElementById('MessageTitleToShow').value;
-                            config.MessageTextToShow = document.getElementById('MessageTextToShow').value;
+                            config.UserStreamLimits = JSON.stringify(usersWithValues);
+                            config.MessageTitle = document.getElementById('MessageTitle').value;
+                            config.MessageText = document.getElementById('MessageText').value;
                             ApiClient.updatePluginConfiguration(StreamLimiterConfig.pluginUniqueId, config)
                                 .then(function (result) {
                                     Dashboard.processPluginConfigurationUpdateResult(result);
@@ -95,11 +95,11 @@
                     // Load saved configuration and populate numeric value for the selected user
                     ApiClient.getPluginConfiguration(StreamLimiterConfig.pluginUniqueId)
                         .then(function (config) {
-                            if (config.UserNumericValues) {
+                            if (config.UserStreamLimits) {
                                 populateUsersWithValues(config);
                                 document.getElementById('MaxStreams').value = usersWithValues[ddlUsers.value];
-                                document.getElementById('MessageTitleToShow').value = config.MessageTitleToShow;
-                                document.getElementById('MessageTextToShow').value = config.MessageTextToShow;
+                                document.getElementById('MessageTitle').value = config.MessageTitle;
+                                document.getElementById('MessageText').value = config.MessageText;
                             }
                         });
                 });

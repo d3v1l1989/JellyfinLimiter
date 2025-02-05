@@ -27,7 +27,7 @@ public class Plugin : BasePlugin<PluginConfiguration>, IHasWebPages
     /// <summary>
     /// Gets the name of the configuration file.
     /// </summary>
-    public override string ConfigurationFileName => "plugin-configuration";
+    public override string ConfigurationFileName => "Jellyfin.Plugin.StreamLimit.xml";
 
     public override string Description => "Stream Limiter";
 

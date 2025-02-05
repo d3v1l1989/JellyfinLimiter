@@ -65,19 +65,19 @@ public sealed class PlaybackStartLimiter : IEventConsumer<PlaybackStartEventArgs
             return;
         }
 
-        var configurationUserNumericValues = _configuration.UserNumericValues;
-        if (string.IsNullOrEmpty(configurationUserNumericValues))
+        var configurationUserStreamLimits = _configuration.UserStreamLimits;
+        if (string.IsNullOrEmpty(configurationUserStreamLimits))
         {
             return;
         }
 
         try
         {
-            _userData = JsonConvert.DeserializeObject<Dictionary<string, int>>(configurationUserNumericValues) ?? new Dictionary<string, int>();
+            _userData = JsonConvert.DeserializeObject<Dictionary<string, int>>(configurationUserStreamLimits) ?? new Dictionary<string, int>();
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to convert configurationUserNumericValues to object");
+            _logger.LogError(ex, "Failed to convert configurationUserStreamLimits to object");
         }
     }
 
@@ -188,15 +188,15 @@ public sealed class PlaybackStartLimiter : IEventConsumer<PlaybackStartEventArgs
     {
         try
         {
-            var messageTitle = _configuration?.MessageTitleToShow ?? "Stream Limit";
-            var messageText = _configuration?.MessageTextToShow ?? "Active streams exceeded";
+            var MessageText = _configuration?.MessageTitle ?? "Stream Limit";
+            var messageText = _configuration?.MessageText ?? "Active streams exceeded";
 
             await _sessionManager.SendMessageCommand(
                 session.Id,
                 session.Id,
                 new MessageCommand
                 {
-                    Header = messageTitle,
+                    Header = MessageText,
                     Text = messageText,
                 },
                 CancellationToken.None);
