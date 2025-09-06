@@ -4,6 +4,7 @@ A Jellyfin plugin that allows you to limit the number of simultaneous streams pe
 
 ## Features
 
+- 🌐 Global default stream limit with per-user overrides
 - 🎮 Limit streams per user
 - 📝 Customizable messages
 - 🔒 Automatic session management
@@ -36,6 +37,7 @@ A Jellyfin plugin that allows you to limit the number of simultaneous streams pe
 
 ### Configuration Options
 
+- **Default Max Streams**: Global default maximum streams for users without an explicit override. Set to 0 for unlimited.
 - **Max Streams**: Maximum number of simultaneous streams allowed per user
 - **Message Title**: Global title of the message displayed when limit is exceeded
 - **Message**: Global detailed text shown to users when they exceed their limit
