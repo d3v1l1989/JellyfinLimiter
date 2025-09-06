@@ -18,6 +18,7 @@ public class PluginConfiguration : MediaBrowser.Model.Plugins.BasePluginConfigur
         UserStreamLimits = string.Empty;
         MessageTitle = "Stream Limit";
         MessageText = "Active streams exceeded";
+        DefaultMaxStreams = 0; // 0 means unlimited by default
     }
 
     /// <summary>
@@ -38,4 +39,11 @@ public class PluginConfiguration : MediaBrowser.Model.Plugins.BasePluginConfigur
     /// </summary>
     [XmlElement(ElementName = "MessageText")]
     public string MessageText { get; set; }
+
+    /// <summary>
+    /// Gets or sets the default maximum number of simultaneous streams for users
+    /// without an explicit per-user override. 0 means unlimited.
+    /// </summary>
+    [XmlElement(ElementName = "DefaultMaxStreams")]
+    public int DefaultMaxStreams { get; set; }
 }

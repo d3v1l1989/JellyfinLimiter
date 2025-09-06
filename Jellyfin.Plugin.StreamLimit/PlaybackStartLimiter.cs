@@ -112,15 +112,19 @@ public sealed class PlaybackStartLimiter : IEventConsumer<PlaybackStartEventArgs
             _logger.LogInformation("[{TaskNumber}] Streaming Active : {ActiveStreams}", taskNumber, activeStreamsForUser);
 
             var userDataKey = userId.Replace("-", string.Empty);
-            var maxStreamsAllowed = _userData.GetValueOrDefault(userDataKey);
+            var hasPerUser = _userData.TryGetValue(userDataKey, out var perUserLimit);
+            var defaultLimit = _configuration?.DefaultMaxStreams ?? 0;
+            var effectiveLimit = hasPerUser ? perUserLimit : defaultLimit;
 
             _logger.LogInformation(
-                "[{TaskNumber}] Streaming Limit  : {MaxStreams} [{HasLimit}]",
+                "[{TaskNumber}] Streaming Limit  : {Effective} (User:{PerUser}; Default:{Default}; Using:{Source})",
                 taskNumber,
-                maxStreamsAllowed,
-                maxStreamsAllowed > 0 ? "Y" : "N");
+                effectiveLimit,
+                perUserLimit,
+                defaultLimit,
+                hasPerUser ? "User" : "Default");
 
-            if (maxStreamsAllowed > 0 && activeStreamsForUser > maxStreamsAllowed)
+            if (effectiveLimit > 0 && activeStreamsForUser > effectiveLimit)
             {
                 await LimitPlayback(e.Session, taskNumber);
             }
@@ -129,7 +133,7 @@ public sealed class PlaybackStartLimiter : IEventConsumer<PlaybackStartEventArgs
                 _logger.LogInformation(
                     "[{TaskNumber}] {Status} : Play Bypass",
                     taskNumber,
-                    maxStreamsAllowed > 0 ? "Not Limited" : "No In Limit");
+                    effectiveLimit > 0 ? "Not Limited" : "No In Limit");
             }
         }
         catch (Exception ex)
@@ -239,4 +243,3 @@ public sealed class PlaybackStartLimiter : IEventConsumer<PlaybackStartEventArgs
             e.Session);
     }
 }
-

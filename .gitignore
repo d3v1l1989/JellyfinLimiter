@@ -1,0 +1,21 @@
+# Build artifacts
+**/bin/
+**/obj/
+**/out/
+
+# User-specific
+*.user
+*.rsuser
+*.suo
+*.userosscache
+*.sln.docstates
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vs/
+
+# Ignore contributor guide in VCS
+AGENTS.md

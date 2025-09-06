@@ -9,6 +9,11 @@
         <div data-role="content">
             <div class="content-primary">
                 <form id="StreamLimiterConfigForm">
+                    <div class="inputContainer">
+                        <label class="inputLabel inputLabelUnfocused" for="DefaultMaxStreams">Default Max Streams</label>
+                        <input id="DefaultMaxStreams" name="DefaultMaxStreams" type="number" is="emby-input" min="0" />
+                        <div class="fieldDescription">Applied to all users without an explicit override. 0 = unlimited.</div>
+                    </div>
                     <div class="selectContainer">
                         <label class="selectLabel" for="Users">Users</label>
                         <select is="emby-select" id="Users" name="Users"
@@ -53,7 +58,9 @@
             }
             function dropDownUsers_change() {
                 const ddlUsers = document.getElementById('Users');
-                document.getElementById('MaxStreams').value = usersWithValues[ddlUsers.value];
+                const defVal = parseInt(document.getElementById('DefaultMaxStreams').value || '0');
+                const perUser = usersWithValues[ddlUsers.value];
+                document.getElementById('MaxStreams').value = (perUser !== undefined) ? perUser : defVal;
             }
             document.querySelector('#StreamLimiterConfigPage')
                 .addEventListener('pageshow', function () {
@@ -67,9 +74,16 @@
                         .then(function (config) {
                             const ddlUsers = document.getElementById('Users');
                             populateUsersWithValues(config);
-                            const streams = document.getElementById('MaxStreams').value;
-                            usersWithValues[ddlUsers.value] = streams;
+                            const defaultStreams = parseInt(document.getElementById('DefaultMaxStreams').value || '0');
+                            const streams = parseInt(document.getElementById('MaxStreams').value || '0');
+                            // Maintain per-user override only if it differs from default
+                            if (streams === defaultStreams) {
+                                delete usersWithValues[ddlUsers.value];
+                            } else {
+                                usersWithValues[ddlUsers.value] = streams;
+                            }
                             config.UserStreamLimits = JSON.stringify(usersWithValues);
+                            config.DefaultMaxStreams = defaultStreams;
                             config.MessageTitle = document.getElementById('MessageTitle').value;
                             config.MessageText = document.getElementById('MessageText').value;
                             ApiClient.updatePluginConfiguration(StreamLimiterConfig.pluginUniqueId, config)
@@ -97,7 +111,9 @@
                         .then(function (config) {
                             if (config.UserStreamLimits) {
                                 populateUsersWithValues(config);
-                                document.getElementById('MaxStreams').value = usersWithValues[ddlUsers.value];
+                                document.getElementById('DefaultMaxStreams').value = config.DefaultMaxStreams || 0;
+                                const perUser = usersWithValues[ddlUsers.value];
+                                document.getElementById('MaxStreams').value = (perUser !== undefined) ? perUser : (config.DefaultMaxStreams || 0);
                                 document.getElementById('MessageTitle').value = config.MessageTitle;
                                 document.getElementById('MessageText').value = config.MessageText;
                             }

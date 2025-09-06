@@ -37,16 +37,21 @@ namespace Jellyfin.Plugin.StreamLimit.Api
                     return this.NotFound("User does not exist");
                 }
 
-                var userData = JsonConvert.DeserializeObject<Dictionary<string, int>>(Plugin.Instance.Configuration.UserStreamLimits);
-                if (userData != null)
+                var config = Plugin.Instance.Configuration;
+                var userData = string.IsNullOrWhiteSpace(config.UserStreamLimits)
+                    ? new Dictionary<string, int>()
+                    : JsonConvert.DeserializeObject<Dictionary<string, int>>(config.UserStreamLimits) ?? new Dictionary<string, int>();
+
+                var key = userId.Replace("-", string.Empty);
+                var hasPerUser = userData.TryGetValue(key, out var perUser);
+                var effective = hasPerUser ? perUser : (config is Configuration.PluginConfiguration pc ? pc.DefaultMaxStreams : 0);
+
+                return Ok(new
                 {
-                    int streamsAllowed = userData[userId.Replace("-", string.Empty)];
-                    return Ok(new
-                    {
-                        userId = userId,
-                        streamsAllowed = streamsAllowed
-                    });
-                }
+                    userId = userId,
+                    streamsAllowed = effective,
+                    source = hasPerUser ? "user" : "default"
+                });
             }
             catch (Exception ex)
             {
@@ -68,14 +73,14 @@ namespace Jellyfin.Plugin.StreamLimit.Api
                     return this.NotFound("User does not exist");
                 }
 
-                var userData = JsonConvert.DeserializeObject<Dictionary<string, int>>(Plugin.Instance.Configuration.UserStreamLimits);
-                if (userData != null)
-                {
-                    userData[userId.Replace("-", string.Empty)] = streamsAllowed;
-                    Plugin.Instance.Configuration.UserStreamLimits = JsonConvert.SerializeObject(userData);
-                    Plugin.Instance.SaveConfiguration();
-                    return Ok("user's stream limit set");
-                }
+                var userData = string.IsNullOrWhiteSpace(Plugin.Instance.Configuration.UserStreamLimits)
+                    ? new Dictionary<string, int>()
+                    : JsonConvert.DeserializeObject<Dictionary<string, int>>(Plugin.Instance.Configuration.UserStreamLimits) ?? new Dictionary<string, int>();
+
+                userData[userId.Replace("-", string.Empty)] = streamsAllowed;
+                Plugin.Instance.Configuration.UserStreamLimits = JsonConvert.SerializeObject(userData);
+                Plugin.Instance.SaveConfiguration();
+                return Ok("user's stream limit set");
             }
             catch (Exception ex)
             {
